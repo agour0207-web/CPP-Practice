@@ -1,0 +1,521 @@
+#include <iostream>
+#include <fstream>
+#include <string>
+#include <algorithm>
+#include <sstream>
+#include <cctype>
+#include <limits>
+using namespace std;
+
+const int MAX_ITEMS = 500;
+
+// Structure to store item information
+struct Item
+{
+    int id;
+    string type;
+    string category;
+    string itemName;
+    string description;
+    string location;
+    string studentName;
+    string contact;
+};
+
+// Global array
+Item items[MAX_ITEMS];
+int itemCount = 0;
+int nextId = 1;
+
+string loggedInStudent;
+string loggedInRoll;
+
+// Convert string into lowercase
+string toLowerCase(string text)
+{
+    transform(text.begin(), text.end(), text.begin(),
+        [](unsigned char c) { return tolower(c); });
+    return text;
+}
+
+// Remove file separator from user input
+string cleanInput(string text)
+{
+    for (char &ch : text)
+    {
+        if (ch == '|')
+            ch = '/';
+    }
+    return text;
+}
+
+// Save all records into file
+void saveRecords()
+{
+    ofstream file("lost_found.txt");
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        file << items[i].id << "|"
+             << items[i].type << "|"
+             << items[i].category << "|"
+             << items[i].itemName << "|"
+             << items[i].description << "|"
+             << items[i].location << "|"
+             << items[i].studentName << "|"
+             << items[i].contact << "\n";
+    }
+
+    file.close();
+}
+
+// Load records from file
+void loadRecords()
+{
+    ifstream file("lost_found.txt");
+    string line;
+
+    while (getline(file, line) && itemCount < MAX_ITEMS)
+    {
+        stringstream ss(line);
+        string fields[8];
+
+        for (int i = 0; i < 8; i++)
+        {
+            if (!getline(ss, fields[i], '|'))
+                break;
+        }
+
+        try
+        {
+            if (fields[7].empty())
+                continue;
+
+            items[itemCount].id = stoi(fields[0]);
+            items[itemCount].type = fields[1];
+            items[itemCount].category = fields[2];
+            items[itemCount].itemName = fields[3];
+            items[itemCount].description = fields[4];
+            items[itemCount].location = fields[5];
+            items[itemCount].studentName = fields[6];
+            items[itemCount].contact = fields[7];
+
+            if (items[itemCount].id >= nextId)
+                nextId = items[itemCount].id + 1;
+
+            itemCount++;
+        }
+        catch (...)
+        {
+            // Ignore invalid records
+        }
+    }
+
+    file.close();
+}
+
+// Display one record
+void displayItem(Item item)
+{
+    cout << "\n----------------------------------";
+    cout << "\nID          : " << item.id;
+    cout << "\nType        : " << item.type;
+    cout << "\nCategory    : " << item.category;
+    cout << "\nItem Name   : " << item.itemName;
+    cout << "\nDescription : " << item.description;
+    cout << "\nLocation    : " << item.location;
+    cout << "\nReported By : " << item.studentName;
+    cout << "\nContact     : " << item.contact;
+    cout << "\n----------------------------------\n";
+}
+
+// 1. Student Login
+void studentLogin()
+{
+    cout << "\n========== STUDENT LOGIN ==========\n";
+
+    cout << "Enter Student Name: ";
+    getline(cin, loggedInStudent);
+
+    cout << "Enter Roll Number: ";
+    getline(cin, loggedInRoll);
+
+    if (loggedInStudent.empty() || loggedInRoll.empty())
+    {
+        cout << "\nInvalid details. Please login again.\n";
+        loggedInStudent = "";
+        loggedInRoll = "";
+        return;
+    }
+
+    cout << "\nLogin Successful!";
+    cout << "\nWelcome, " << loggedInStudent << "!\n";
+}
+
+// Add a new record
+void addItem(string itemType)
+{
+    if (itemCount >= MAX_ITEMS)
+    {
+        cout << "\nRecord storage is full!\n";
+        return;
+    }
+
+    Item newItem;
+
+    newItem.id = nextId++;
+    newItem.type = itemType;
+    newItem.studentName = loggedInStudent;
+
+    cout << "\n========== " << itemType << " ITEM ==========\n";
+
+    cout << "Enter Item Category (Mobile/Wallet/ID Card/Keys): ";
+    getline(cin, newItem.category);
+
+    cout << "Enter Item Name: ";
+    getline(cin, newItem.itemName);
+
+    cout << "Enter Item Description: ";
+    getline(cin, newItem.description);
+
+    cout << "Enter Location: ";
+    getline(cin, newItem.location);
+
+    cout << "Enter Contact Number: ";
+    getline(cin, newItem.contact);
+
+    newItem.category = cleanInput(newItem.category);
+    newItem.itemName = cleanInput(newItem.itemName);
+    newItem.description = cleanInput(newItem.description);
+    newItem.location = cleanInput(newItem.location);
+    newItem.contact = cleanInput(newItem.contact);
+
+    items[itemCount] = newItem;
+    itemCount++;
+
+    saveRecords();
+
+    cout << "\nItem reported successfully!";
+    cout << "\nYour Record ID is: " << newItem.id << "\n";
+}
+
+// 2. Report Lost Item
+void reportLostItem()
+{
+    addItem("LOST");
+}
+
+// 3. Report Found Item
+void reportFoundItem()
+{
+    addItem("FOUND");
+}
+
+// 4. Search Item
+void searchItem()
+{
+    string keyword;
+    bool found = false;
+
+    cout << "\nEnter Item Name or Category to Search: ";
+    getline(cin, keyword);
+
+    keyword = toLowerCase(keyword);
+
+    cout << "\n========== SEARCH RESULTS ==========\n";
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        if (toLowerCase(items[i].itemName).find(keyword) != string::npos ||
+            toLowerCase(items[i].category).find(keyword) != string::npos ||
+            toLowerCase(items[i].description).find(keyword) != string::npos)
+        {
+            displayItem(items[i]);
+            found = true;
+        }
+    }
+
+    if (!found)
+        cout << "\nNo matching records found.\n";
+}
+
+// Check whether descriptions have a common word
+bool commonKeyword(string first, string second)
+{
+    stringstream ss(first);
+    string word;
+
+    second = toLowerCase(second);
+
+    while (ss >> word)
+    {
+        if (word.length() >= 3 &&
+            second.find(word) != string::npos)
+        {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+// 5. Automatic Lost & Found Matching
+void autoMatch()
+{
+    bool matchFound = false;
+
+    cout << "\n========== AUTOMATIC MATCHING ==========\n";
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        if (items[i].type != "LOST")
+            continue;
+
+        for (int j = 0; j < itemCount; j++)
+        {
+            if (items[j].type != "FOUND")
+                continue;
+
+            // Match category and description keywords
+            if (toLowerCase(items[i].category) ==
+                    toLowerCase(items[j].category) &&
+                (commonKeyword(
+                    toLowerCase(items[i].itemName + " " +
+                                items[i].description),
+                    items[j].itemName + " " + items[j].description) ||
+                 toLowerCase(items[i].itemName) ==
+                    toLowerCase(items[j].itemName)))
+            {
+                cout << "\n*** POSSIBLE MATCH FOUND ***\n";
+
+                cout << "\nLost Item:";
+                displayItem(items[i]);
+
+                cout << "\nFound Item:";
+                displayItem(items[j]);
+
+                matchFound = true;
+            }
+        }
+    }
+
+    if (!matchFound)
+        cout << "\nNo possible matches found.\n";
+
+    cout << "\nNote: Matches require manual verification.\n";
+}
+
+// 6. View All Records with Sorting
+void viewAllRecords()
+{
+    if (itemCount == 0)
+    {
+        cout << "\nNo records available.\n";
+        return;
+    }
+
+    // Bubble sort records by ID
+    for (int i = 0; i < itemCount - 1; i++)
+    {
+        for (int j = 0; j < itemCount - i - 1; j++)
+        {
+            if (items[j].id > items[j + 1].id)
+            {
+                swap(items[j], items[j + 1]);
+            }
+        }
+    }
+
+    cout << "\n========== ALL RECORDS ==========\n";
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        displayItem(items[i]);
+    }
+}
+
+// 7. Delete Record
+void deleteRecord()
+{
+    int searchId;
+    bool found = false;
+
+    cout << "\nEnter Record ID to Delete: ";
+    cin >> searchId;
+    cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        if (items[i].id == searchId &&
+            items[i].studentName == loggedInStudent)
+        {
+            for (int j = i; j < itemCount - 1; j++)
+            {
+                items[j] = items[j + 1];
+            }
+
+            itemCount--;
+            saveRecords();
+
+            cout << "\nRecord deleted successfully!\n";
+            found = true;
+            break;
+        }
+    }
+
+    if (!found)
+        cout << "\nRecord not found or you are not its owner.\n";
+}
+
+// 8. Item Statistics
+void itemStatistics()
+{
+    int lostCount = 0;
+    int foundCount = 0;
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        if (items[i].type == "LOST")
+            lostCount++;
+
+        else if (items[i].type == "FOUND")
+            foundCount++;
+    }
+
+    cout << "\n========== ITEM STATISTICS ==========\n";
+
+    cout << "\nTotal Records : " << itemCount;
+    cout << "\nLost Items    : " << lostCount;
+    cout << "\nFound Items   : " << foundCount;
+    cout << "\n=====================================\n";
+}
+
+// 9. Export Report
+void exportReport()
+{
+    ofstream file("LostFound_Report.txt");
+
+    if (!file)
+    {
+        cout << "\nUnable to create report file.\n";
+        return;
+    }
+
+    file << "COLLEGE LOST & FOUND MANAGEMENT SYSTEM\n";
+    file << "=======================================\n";
+
+    for (int i = 0; i < itemCount; i++)
+    {
+        file << "\nRecord ID: " << items[i].id;
+        file << "\nType: " << items[i].type;
+        file << "\nCategory: " << items[i].category;
+        file << "\nItem Name: " << items[i].itemName;
+        file << "\nDescription: " << items[i].description;
+        file << "\nLocation: " << items[i].location;
+        file << "\nStudent: " << items[i].studentName;
+        file << "\nContact: " << items[i].contact;
+        file << "\n---------------------------------------\n";
+    }
+
+    file.close();
+
+    cout << "\nReport exported successfully!";
+    cout << "\nFile Name: LostFound_Report.txt\n";
+}
+
+// Main Menu
+int main()
+{
+    loadRecords();
+
+    cout << "\n========================================";
+    cout << "\n COLLEGE LOST & FOUND MANAGEMENT SYSTEM";
+    cout << "\n========================================\n";
+
+    // Login
+    studentLogin();
+
+    if (loggedInStudent.empty())
+        return 0;
+
+    int choice;
+
+    do
+    {
+        cout << "\n\n========== MAIN MENU ==========\n";
+        cout << "1. Student Login\n";
+        cout << "2. Report Lost Item\n";
+        cout << "3. Report Found Item\n";
+        cout << "4. Search Item\n";
+        cout << "5. Auto Match Lost & Found\n";
+        cout << "6. View All Records\n";
+        cout << "7. Delete Record\n";
+        cout << "8. Item Statistics\n";
+        cout << "9. Export Report\n";
+        cout << "10. Exit\n";
+
+        cout << "\nEnter Your Choice: ";
+
+        if (!(cin >> choice))
+        {
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+            cout << "\nInvalid input! Enter a number.\n";
+            continue;
+        }
+
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+        switch (choice)
+        {
+            case 1:
+                studentLogin();
+                break;
+
+            case 2:
+                if (!loggedInStudent.empty())
+                    reportLostItem();
+                break;
+
+            case 3:
+                if (!loggedInStudent.empty())
+                    reportFoundItem();
+                break;
+
+            case 4:
+                searchItem();
+                break;
+
+            case 5:
+                autoMatch();
+                break;
+
+            case 6:
+                viewAllRecords();
+                break;
+
+            case 7:
+                deleteRecord();
+                break;
+
+            case 8:
+                itemStatistics();
+                break;
+
+            case 9:
+                exportReport();
+                break;
+
+            case 10:
+                cout << "\nThank you for using the system!";
+                cout << "\nExiting Program...\n";
+                break;
+
+            default:
+                cout << "\nInvalid Choice! Try Again.\n";
+        }
+
+    } while (choice != 10);
+
+    return 0;
+}
